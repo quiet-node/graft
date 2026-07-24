@@ -4,6 +4,12 @@ Hackathon submission for Daytona HackSprint w/ Braintrust — SF, July 24 2026.
 
 Project details, architecture, and feature scope: TBD.
 
+## Hackathon context
+
+This is a ~5-hour hackathon build. Favor fast, pragmatic execution — working code over polish, avoid over-engineering, don't get stuck deliberating over decisions that don't matter for a one-day demo.
+
+All event info, schedule, rules, sponsor resources, submission requirements, and coupon codes live in `hackathon-resources/RESOURCES.md` — check there for anything event-specific.
+
 ## Sponsor tools — Claude Code integration reference
 
 ### Daytona (sandboxed code execution)
