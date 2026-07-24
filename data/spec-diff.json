@@ -1,0 +1,29 @@
+{
+  "provider": "stripe",
+  "fromVersion": "v1494",
+  "toVersion": "v1618",
+  "apiVersion": "2025-03-31.basil",
+  "detectedAt": "2026-07-24T18:59:11.260Z",
+  "changes": [
+    {
+      "kind": "field-removed",
+      "severity": "breaking",
+      "schema": "subscription",
+      "field": "current_period_start",
+      "movedTo": "subscription_item.current_period_start",
+      "oldAccessor": "subscription.current_period_start",
+      "newAccessor": "subscription.items.data[0].current_period_start",
+      "changelogUrl": "https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end"
+    },
+    {
+      "kind": "field-removed",
+      "severity": "breaking",
+      "schema": "subscription",
+      "field": "current_period_end",
+      "movedTo": "subscription_item.current_period_end",
+      "oldAccessor": "subscription.current_period_end",
+      "newAccessor": "subscription.items.data[0].current_period_end",
+      "changelogUrl": "https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end"
+    }
+  ]
+}
