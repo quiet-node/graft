@@ -1,4 +1,4 @@
-# Graft
+# Graft AI
 
 Hackathon submission for Daytona HackSprint w/ Braintrust — SF, July 24 2026.
 
