@@ -13,8 +13,12 @@ export const dynamic = 'force-dynamic'
 
 // Budgets are deliberately loose: a single repo runs one classifier call per candidate
 // line, sequentially, so a healthy scan of the largest repo already takes tens of seconds.
+// The outer budget has to clear the inner one: lib/patch retries a timed-out call once, so a
+// worst-case patch is two full per-call timeouts plus the wait for a concurrency slot. At 45s
+// this timer fired first and reported a spurious "patch failed" while the retry was still in
+// flight. The invariant is outer > inner * (1 + retries) + queue slack.
 const SCAN_TIMEOUT_MS = 120_000
-const PATCH_TIMEOUT_MS = 45_000
+const PATCH_TIMEOUT_MS = 60_000
 const VERIFY_TIMEOUT_MS = 150_000
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -87,12 +91,13 @@ export async function POST(req: NextRequest) {
 
           const verdicts = await Promise.all(
             result.hits.map(async (hit): Promise<LineVerdict> => {
-              const base = {
+              const base: LineVerdict = {
                 file: hit.file,
                 line: hit.line,
                 text: hit.text,
                 genuine: hit.genuine,
                 reason: hit.reason,
+                ...(hit.classifierFailed && { classifierFailed: hit.classifierFailed }),
               }
               if (!hit.genuine) return base
               try {

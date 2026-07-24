@@ -2,7 +2,9 @@ import type { BreakingChange } from './types'
 import { baseExpressions, withFireworksSlot, type ScanHit } from './scan'
 import { fireworks, FIREWORKS_MODEL, recordUsage } from './fireworks'
 
-const PATCH_TIMEOUT_MS = 25_000
+// Matches the classifier budget: fail a sick call fast and let the single retry cover it,
+// while staying well inside the caller's own per-patch timeout in app/api/run/route.ts.
+const PATCH_TIMEOUT_MS = 15_000
 const PATCH_MAX_RETRIES = 1
 
 // The model owns the code on the line, not its layout. Any trailing newline it adds and any

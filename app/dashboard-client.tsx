@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { CopilotKit } from '@copilotkit/react-core'
+import { CopilotKit, useCopilotReadable } from '@copilotkit/react-core'
 import { CopilotSidebar } from '@copilotkit/react-ui'
 import { TARGET_REPOS } from '@/lib/repos'
 import type { BreakingChange, TargetRepo } from '@/lib/types'
@@ -110,11 +110,14 @@ export default function DashboardClient({
 
   const counts = useMemo(() => {
     const verdicts = repoViews.flatMap((v) => v.verdicts)
+    // The four outcome counts partition the scanned lines: a line the classifier never
+    // judged is counted on its own and never folded into rejected.
     return {
       matched: verdicts.length,
       patched: verdicts.filter((v) => v.genuine && v.patch).length,
-      rejected: verdicts.filter((v) => !v.genuine).length,
+      rejected: verdicts.filter((v) => !v.genuine && !v.classifierFailed).length,
       patchFailed: verdicts.filter((v) => v.genuine && !v.patch).length,
+      classifierFailed: verdicts.filter((v) => v.classifierFailed).length,
     }
   }, [repoViews])
 
@@ -165,13 +168,27 @@ export default function DashboardClient({
                     <Stat value={counts.patchFailed} label="Patch failed" tone="var(--ink-3)" />
                   </>
                 )}
+                {counts.classifierFailed > 0 && (
+                  <>
+                    <Slash />
+                    <Stat value={counts.classifierFailed} label="Classifier failed" tone="var(--ink-3)" />
+                  </>
+                )}
               </div>
               <p className="prose-line mt-8 max-w-3xl text-[13px] text-[var(--ink-2)]">
                 {counts.matched === 0 && running
                   ? 'Scanning repositories and classifying every candidate line.'
                   : `Grep matched ${counts.matched} lines across ${repoViews.length} repositories. Graft judged ${
                       counts.patched + counts.patchFailed
-                    } of them genuine Stripe Subscription usage and rejected ${counts.rejected} as unrelated code that merely shares the field name.`}
+                    } of them genuine Stripe Subscription usage and rejected ${counts.rejected} as unrelated code that merely shares the field name.${
+                      counts.classifierFailed > 0
+                        ? ` ${counts.classifierFailed} ${
+                            counts.classifierFailed === 1 ? 'line was' : 'lines were'
+                          } left unjudged because the classifier call failed, and ${
+                            counts.classifierFailed === 1 ? 'is' : 'are'
+                          } counted in neither total.`
+                        : ''
+                    }`}
               </p>
             </>
           ) : (
@@ -198,10 +215,70 @@ export default function DashboardClient({
 
   return (
     <CopilotKit runtimeUrl="/api/copilotkit">
+      <PipelineContext change={change} provider={provider} counts={counts} repoViews={repoViews} hasRun={hasRun} />
       {content}
       <CopilotSidebar labels={{ title: 'Graft', initial: 'Ask about this pipeline.' }} />
     </CopilotKit>
   )
+}
+
+// Feeds the current run into the chat so questions are answered from what Graft actually
+// found rather than from the model's general knowledge. The hook has to sit inside the
+// CopilotKit provider, so it lives in its own render-nothing child.
+function PipelineContext({
+  change,
+  provider,
+  counts,
+  repoViews,
+  hasRun,
+}: {
+  change: BreakingChange
+  provider: string
+  counts: { matched: number; patched: number; rejected: number; patchFailed: number; classifierFailed: number }
+  repoViews: RepoView[]
+  hasRun: boolean
+}) {
+  useCopilotReadable({
+    description:
+      'The current state of the Graft pipeline: it scans repositories for a breaking API change, ' +
+      'classifies every matching line as genuine breakage or unrelated code, patches the genuine ' +
+      'ones, and proves the migrated accessor in a Daytona sandbox against the live Stripe API.',
+    value: {
+      breakingChange: {
+        provider,
+        field: change.field,
+        oldAccessor: change.oldAccessor,
+        newAccessor: change.newAccessor,
+      },
+      hasRun,
+      counts: {
+        scanned: counts.matched,
+        patched: counts.patched,
+        rejected: counts.rejected,
+        patchFailed: counts.patchFailed,
+        // Lines the classifier never judged. They are not rejections.
+        classifierFailed: counts.classifierFailed,
+      },
+      repositories: repoViews.map((view) => ({
+        name: view.repo.name,
+        status: view.status,
+        verdicts: view.verdicts.map((v) => ({
+          file: v.file,
+          line: v.line,
+          outcome: v.classifierFailed
+            ? 'classifier-failed'
+            : v.genuine
+              ? v.patch
+                ? 'patched'
+                : 'patch-failed'
+              : 'rejected',
+          reason: v.reason,
+          patchedTo: v.patch?.after.trim(),
+        })),
+      })),
+    },
+  })
+  return null
 }
 
 function Stat({ value, label, tone }: { value: number; label: string; tone: string }) {
@@ -221,7 +298,8 @@ function Slash() {
 
 function RepoSection({ view, proof }: { view: RepoView; proof: ProofState }) {
   const patched = view.verdicts.filter((v) => v.genuine && v.patch).length
-  const rejected = view.verdicts.filter((v) => !v.genuine).length
+  const rejected = view.verdicts.filter((v) => !v.genuine && !v.classifierFailed).length
+  const classifierFailed = view.verdicts.filter((v) => v.classifierFailed).length
 
   return (
     <section>
@@ -236,6 +314,12 @@ function RepoSection({ view, proof }: { view: RepoView; proof: ProofState }) {
             <span className="text-[var(--ink)]">{patched} patched</span>
             <span className="px-2 text-[var(--ink-4)]">/</span>
             <span>{rejected} rejected</span>
+            {classifierFailed > 0 && (
+              <>
+                <span className="px-2 text-[var(--ink-4)]">/</span>
+                <span>{classifierFailed} classifier failed</span>
+              </>
+            )}
           </span>
         )}
       </header>
@@ -263,16 +347,24 @@ function RepoSection({ view, proof }: { view: RepoView; proof: ProofState }) {
   )
 }
 
-// Patched, rejected and patch-failed rows are told apart by value, weight, rule
-// presence and surface elevation only. No colour and no iconography anywhere.
+// Patched, rejected, patch-failed and classifier-failed rows are told apart by value, weight,
+// rule presence and surface elevation only. No colour and no iconography anywhere. A
+// classifier-failed row carries no verdict, so it is never struck through like a rejection.
 function VerdictRow({ verdict, proof }: { verdict: LineVerdict; proof: ProofState }) {
+  const isClassifierFailed = Boolean(verdict.classifierFailed)
   const isPatched = verdict.genuine && Boolean(verdict.patch)
-  const isRejected = !verdict.genuine
+  const isRejected = !verdict.genuine && !isClassifierFailed
 
   const rule = isPatched ? 'var(--ink)' : isRejected ? 'transparent' : 'var(--line-strong)'
   const surface = isPatched ? 'var(--raised)' : isRejected ? 'var(--ground)' : 'var(--surface)'
   const pathInk = isRejected ? 'var(--ink-4)' : 'var(--ink-2)'
-  const verdictLabel = isPatched ? 'Patched' : isRejected ? 'Rejected' : 'Patch failed'
+  const verdictLabel = isClassifierFailed
+    ? 'Classifier failed'
+    : isPatched
+      ? 'Patched'
+      : isRejected
+        ? 'Rejected'
+        : 'Patch failed'
 
   return (
     <article
@@ -302,7 +394,7 @@ function VerdictRow({ verdict, proof }: { verdict: LineVerdict; proof: ProofStat
       />
 
       <p className="prose-line mt-4 max-w-3xl text-[13px]" style={{ color: isRejected ? 'var(--ink-3)' : 'var(--ink-2)' }}>
-        <span className="micro mr-3 align-baseline">Classifier reason</span>
+        <span className="micro mr-3 align-baseline">{isClassifierFailed ? 'No verdict reached' : 'Classifier reason'}</span>
         {verdict.reason}
       </p>
 

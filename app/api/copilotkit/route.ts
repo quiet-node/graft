@@ -1,22 +1,19 @@
 import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNextJSAppRouterEndpoint } from '@copilotkit/runtime'
-import OpenAI from 'openai'
 import { NextRequest } from 'next/server'
+import { fireworks, FIREWORKS_MODEL } from '@/lib/fireworks'
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.FIREWORKS_API_KEY
-
-  if (!apiKey) {
+  if (!process.env.FIREWORKS_API_KEY) {
     return new Response(JSON.stringify({ error: 'FIREWORKS_API_KEY not configured' }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 
-  const openai = new OpenAI({
-    apiKey,
-    baseURL: 'https://api.fireworks.ai/inference/v1',
-  })
-  const serviceAdapter = new OpenAIAdapter({ openai })
+  // The adapter defaults to an OpenAI model id, which Fireworks rejects with "Model not
+  // found". The pipeline's own model is named explicitly so the chat runs on the same
+  // Fireworks deployment as the scan and patch calls.
+  const serviceAdapter = new OpenAIAdapter({ openai: fireworks, model: FIREWORKS_MODEL })
   const runtime = new CopilotRuntime()
 
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({

@@ -14,7 +14,9 @@ const MAX_CALL_SITES = 6
 // burst below the Fireworks rate limit; the per-call timeout stops one hung request from
 // holding the whole run open.
 const FIREWORKS_CONCURRENCY = 12
-const CLASSIFIER_TIMEOUT_MS = 25_000
+// Healthy calls land in single-digit seconds, so a call still open at 15s is sick rather than
+// slow: failing it fast and retrying once beats waiting out a hung connection.
+const CLASSIFIER_TIMEOUT_MS = 15_000
 const CLASSIFIER_MAX_RETRIES = 1
 
 // Marks a hit whose classification call never completed, so a degraded hit can never be
@@ -46,6 +48,9 @@ export type ScanHit = {
   genuine: boolean
   reason: string
   provenance?: string
+  // Set when the classifier call never produced a judgement (timeout, transport error, or
+  // unparseable response). Such a hit is neither genuine nor rejected: nothing was decided.
+  classifierFailed?: true
 }
 
 export type ScanResult = {
@@ -269,7 +274,7 @@ async function classify(
   change: BreakingChange,
   repo: TargetRepo,
   files: string[]
-): Promise<{ genuine: boolean; reason: string; provenance: string }> {
+): Promise<{ genuine: boolean; reason: string; provenance: string; classifierFailed?: true }> {
   const { baseExprs, body, callSites } = collectProvenance(candidate, change.field, repo, files)
   const system =
     `Stripe removed "${change.field}" from the Subscription object; it moved to "${change.movedTo}", ` +
@@ -339,6 +344,7 @@ async function classify(
     const message = err instanceof Error ? err.message : String(err)
     return {
       genuine: false,
+      classifierFailed: true,
       reason: `${CLASSIFIER_ERROR_PREFIX} ${message}`,
       provenance: `${CLASSIFIER_ERROR_PREFIX} ${message}`,
     }
@@ -354,8 +360,11 @@ async function classify(
       provenance: String(parsed.provenance ?? 'no trace given'),
     }
   } catch {
+    // Same class of failure as a dead call: the model answered, but nothing decodable came
+    // back, so no verdict was reached on this line.
     return {
       genuine: false,
+      classifierFailed: true,
       reason: `classifier returned invalid JSON: ${raw.slice(0, 100)}`,
       provenance: 'unresolved: classifier returned invalid JSON',
     }
@@ -367,8 +376,8 @@ export async function scanRepo(repo: TargetRepo, change: BreakingChange): Promis
   walk(repo.localPath, files)
   const candidates = findCandidates(files, repo, change.field)
   const hits = await Promise.all(
-    candidates.map(async (candidate) => {
-      const { genuine, reason, provenance } = await classify(candidate, change, repo, files)
+    candidates.map(async (candidate): Promise<ScanHit> => {
+      const { genuine, reason, provenance, classifierFailed } = await classify(candidate, change, repo, files)
       return {
         file: candidate.relPath,
         line: candidate.line,
@@ -376,6 +385,7 @@ export async function scanRepo(repo: TargetRepo, change: BreakingChange): Promis
         genuine,
         reason,
         provenance,
+        ...(classifierFailed && { classifierFailed }),
       }
     })
   )

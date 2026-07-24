@@ -1,12 +1,17 @@
 // Wire format for the streaming pipeline endpoint (app/api/run/route.ts).
 // Kept free of node-only imports so the client component can import the types.
 
+// A line is in exactly one of three states: genuine (a real breakage), rejected (judged not
+// a Stripe Subscription read), or classifier-failed. The third state exists because a
+// classifier call that never completed produced no judgement at all, and counting it as a
+// rejection would report a verdict the pipeline never reached.
 export type LineVerdict = {
   file: string
   line: number
   text: string
   genuine: boolean
   reason: string
+  classifierFailed?: true
   patch?: { before: string; after: string }
   patchError?: string
 }
