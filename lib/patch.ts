@@ -5,6 +5,21 @@ import { fireworks, FIREWORKS_MODEL, recordUsage } from './fireworks'
 const PATCH_TIMEOUT_MS = 25_000
 const PATCH_MAX_RETRIES = 1
 
+// The model owns the code on the line, not its layout. Any trailing newline it adds and any
+// leading whitespace it invents is dropped, and the original line's own indentation is copied
+// back verbatim, tabs or spaces alike. Trailing and interior whitespace are left exactly as
+// the model returned them.
+function normalizeAfter(before: string, modelAfter: string): string {
+  const line = modelAfter.replace(/[\r\n]+$/, '')
+  // A multi-line answer would insert lines into the file and shift every line number after
+  // it, so the line is left unpatched instead.
+  if (line.includes('\n')) return before
+  const body = line.trimStart()
+  if (!body) return before
+  const indent = before.slice(0, before.length - before.trimStart().length)
+  return indent + body
+}
+
 export async function generatePatch(
   hit: ScanHit,
   change: BreakingChange
@@ -52,7 +67,7 @@ export async function generatePatch(
   let after = hit.text
   try {
     const parsed = JSON.parse(raw)
-    if (typeof parsed.after === 'string') after = parsed.after
+    if (typeof parsed.after === 'string') after = normalizeAfter(hit.text, parsed.after)
   } catch {
     // fall back to original line unchanged if the model returns invalid JSON
   }
