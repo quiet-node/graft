@@ -18,7 +18,7 @@ Read the **spoken** lines only. Everything in brackets is a stage direction, not
 
 **Screen:** Stripe's Basil changelog page for the `current_period_start` / `current_period_end` deprecation, beside an editor showing a line that reads `subscription.current_period_end`.
 
-> In March, Stripe moved one field.
+> Last March, Stripe moved one field.
 >
 > Current period end. It used to live on the subscription. Now it lives on the subscription item.
 >
@@ -40,7 +40,7 @@ Read the **spoken** lines only. Everything in brackets is a stage direction, not
 >
 > Graft does not read changelogs. It reads the provider's own OpenAPI spec.
 >
-> Stripe committed this removal to their spec on March twenty fifth. The changelog announcing it came out on the thirty first.
+> Stripe committed this removal to their spec on the twenty fifth of March, twenty twenty five. The changelog announcing it came out on the thirty first.
 >
 > **[pause]**
 >
