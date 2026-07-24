@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ground: #0b0f0e;
+  --surface: #121716;
+  --raised: #1a211f;
+  --line: #242d2a;
+
+  --ink: #f2f5f3;
+  --ink-2: #a3afa9;
+  --muted: #6e7c76;
+
+  --accent: #e3b23c;
+
+  --patched: #5fb88a;
+  --patched-bg: #14251c;
+  --rejected: #d96a5b;
+  --rejected-bg: #2a1714;
+  --running: #e3b23c;
+  --running-bg: #251e10;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+html,
+body {
+  background-color: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* Monospace is reserved for code and identifiers. */
+.mono {
+  font-family: var(--font-mono);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.micro {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* CopilotKit mounts a dev inspector web component that floats a product
+   announcement over the app bar. The showDevConsole prop does not suppress it. */
+cpk-web-inspector {
+  display: none !important;
+}
