@@ -2,7 +2,9 @@
 
 Dependabot bumps your version and hands you a broken build. Graft AI bumps it and fixes your code so it still works.
 
-[![Graft AI demo, 1 minute 43](https://img.youtube.com/vi/ma2mWjazca4/maxresdefault.jpg)](https://www.youtube.com/watch?v=ma2mWjazca4)
+https://github.com/user-attachments/assets/79d5c394-5150-4102-a521-a1ced835a934
+
+Demo, 1 minute 43. Also on [YouTube](https://www.youtube.com/watch?v=ma2mWjazca4).
 
 Graft watches a provider's OpenAPI spec, scans repos for code the change breaks, patches it, proves it in a live-API sandbox, and opens a PR with the evidence. Target: Stripe `2025-03-31.basil` moved `current_period_start` and `current_period_end` off Subscription onto SubscriptionItem.
 
