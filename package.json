@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "eval": "tsx evals/run.ts"
   },
   "dependencies": {
     "@copilotkit/react-core": "^1.8.0",
     "@copilotkit/react-ui": "^1.8.0",
     "@copilotkit/runtime": "^1.8.0",
     "@daytona/sdk": "^0.200.1",
+    "autoevals": "^0.0.132",
+    "braintrust": "^3.24.0",
     "dotenv": "^17.4.2",
     "next": "^15.1.0",
     "openai": "^4.77.0",
