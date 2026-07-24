@@ -3,23 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --ground: #0b0f0e;
-  --surface: #121716;
-  --raised: #1a211f;
-  --line: #242d2a;
+  --ground: #000000;
+  --surface: #0a0a0a;
+  --raised: #141414;
+  --line: #1f1f1f;
+  --line-strong: #383838;
 
-  --ink: #f2f5f3;
-  --ink-2: #a3afa9;
-  --muted: #6e7c76;
-
-  --accent: #e3b23c;
-
-  --patched: #5fb88a;
-  --patched-bg: #14251c;
-  --rejected: #d96a5b;
-  --rejected-bg: #2a1714;
-  --running: #e3b23c;
-  --running-bg: #251e10;
+  --ink: #ffffff;
+  --ink-2: #a3a3a3;
+  --ink-3: #6e6e6e;
+  --ink-4: #4a4a4a;
 
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -30,7 +23,12 @@ body {
   background-color: var(--ground);
   color: var(--ink);
   font-family: var(--font-sans);
-  overflow-x: hidden;
+}
+
+/* Wide content scrolls inside its own container; the page never scrolls sideways.
+   clip rather than hidden so the sticky app bar keeps working. */
+body {
+  overflow-x: clip;
 }
 
 h1,
@@ -39,23 +37,181 @@ h3 {
   text-wrap: balance;
 }
 
-/* Monospace is reserved for code and identifiers. */
+/* Monospace is reserved for code, paths, identifiers, counts and timings. */
 .mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
+/* Uppercase micro-label: the type-only replacement for iconography. */
 .micro {
+  font-size: 10px;
+  line-height: 1.2;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+
+.prose-line {
+  line-height: 1.65;
 }
 
 /* CopilotKit mounts a dev inspector web component that floats a product
    announcement over the app bar. The showDevConsole prop does not suppress it. */
 cpk-web-inspector {
   display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+   CopilotKit sidebar, restyled to the monochrome palette.
+   The component ships its own color tokens, rounded surfaces and shadows;
+   these overrides map them onto the greyscale ramp without changing behaviour.
+   --------------------------------------------------------------------------- */
+.copilotKitSidebar,
+.copilotKitWindow,
+.copilotKitButton {
+  --copilot-kit-primary-color: #ffffff;
+  --copilot-kit-contrast-color: #000000;
+  --copilot-kit-background-color: #0a0a0a;
+  --copilot-kit-secondary-color: #141414;
+  --copilot-kit-secondary-contrast-color: #ffffff;
+  --copilot-kit-separator-color: #1f1f1f;
+  --copilot-kit-muted-color: #6e6e6e;
+  --copilot-kit-input-background-color: #000000;
+  --copilot-kit-shadow-sm: none;
+  --copilot-kit-shadow-md: none;
+  --copilot-kit-shadow-lg: none;
+  font-family: var(--font-sans);
+}
+
+.copilotKitWindow {
+  border-radius: 0;
+  border-left: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.copilotKitHeader {
+  border-radius: 0;
+  background-color: var(--surface);
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.copilotKitMessages,
+.copilotKitInputContainer {
+  background-color: var(--ground);
+  border-radius: 0;
+}
+
+.copilotKitInput {
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+.copilotKitInput > textarea {
+  color: var(--ink);
+}
+
+.copilotKitInput > textarea::placeholder {
+  color: var(--ink-4);
+}
+
+.copilotKitUserMessage {
+  background: var(--raised) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+
+.copilotKitAssistantMessage {
+  background: transparent !important;
+  color: var(--ink-2) !important;
+  border-radius: 0;
+}
+
+/* CopilotKit renders runtime failures as a fixed, inline-styled toast with no
+   class of its own. It stays visible, because hiding a failure would be a lie,
+   but it is forced onto the greyscale ramp. The status dot loses its fill and
+   disappears with it. */
+body > div[style*='z-index: 9999'],
+body > div[style*='z-index: 9999'] * {
+  background-color: transparent !important;
+  color: var(--ink-2) !important;
+  border-color: var(--line-strong) !important;
+  box-shadow: none !important;
+}
+
+body > div[style*='z-index: 9999'] {
+  background-color: var(--surface) !important;
+  border-radius: 4px !important;
+}
+
+/* The component's own iconography is suppressed. The dev console pills and the
+   per-message affordances are removed outright; the close control is redundant
+   because the launcher itself toggles the panel. */
+.copilotKitDevConsole,
+.copilotKitMessageControlButton,
+.copilotKitHeaderCloseButton {
+  display: none;
+}
+
+/* The send control stays, relabelled from an arrow glyph to a word. */
+.copilotKitInputControlButton[aria-label='Send'] svg {
+  display: none;
+}
+
+.copilotKitInputControlButton[aria-label='Send']::after {
+  content: 'Send';
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Launcher: a plain bordered square with a text label, not a coloured bubble
+   with an icon. The icon SVGs are suppressed and replaced with a word. */
+.copilotKitButton {
+  width: auto;
+  height: auto;
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background-color: var(--surface);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.copilotKitButton:hover,
+.copilotKitButton:active {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--ink);
+}
+
+.copilotKitButtonIcon {
+  display: none;
+}
+
+.copilotKitButton::after {
+  content: 'Ask Graft';
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.copilotKitButton.open::after {
+  content: 'Close';
 }
