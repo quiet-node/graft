@@ -134,17 +134,13 @@ export default function DashboardClient({
             <div className="micro">
               Breaking change · {provider} · {apiVersion}
             </div>
-            <div className="mono mt-2 overflow-x-auto whitespace-nowrap text-[13px] leading-none">
-              <span className="text-[var(--ink-4)] line-through">{change.oldAccessor}</span>
-              <span className="px-3 text-[var(--ink-4)]">-&gt;</span>
-              <span className="text-[var(--ink)]">{change.newAccessor}</span>
-            </div>
+            <AccessorDiff oldAccessor={change.oldAccessor} newAccessor={change.newAccessor} />
           </div>
 
           <button
             onClick={runPipeline}
             disabled={running}
-            className="shrink-0 rounded border border-[var(--ink)] px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--ink)] transition-colors hover:bg-[var(--raised)] disabled:cursor-not-allowed disabled:border-[var(--line)] disabled:text-[var(--ink-4)] disabled:hover:bg-transparent"
+            className="shrink-0 rounded border border-[var(--ink)] px-5 py-2 text-[12.5px] font-semibold uppercase tracking-[0.1em] text-[var(--ink)] transition-colors hover:bg-[var(--raised)] disabled:cursor-not-allowed disabled:border-[var(--line)] disabled:text-[var(--ink-4)] disabled:hover:bg-transparent"
           >
             {running ? 'Running' : 'Run pipeline'}
           </button>
@@ -310,7 +306,7 @@ function RepoSection({ view, proof }: { view: RepoView; proof: ProofState }) {
         {view.status === 'scanning' && <span className="micro animate-pulse">Scanning</span>}
         {view.status === 'error' && <span className="micro">Error</span>}
         {view.status === 'done' && (
-          <span className="mono shrink-0 text-[12px] text-[var(--ink-3)]">
+          <span className="mono shrink-0 text-[13.5px] text-[var(--ink-3)]">
             <span className="text-[var(--ink)]">{patched} patched</span>
             <span className="px-2 text-[var(--ink-4)]">/</span>
             <span>{rejected} rejected</span>
@@ -372,11 +368,11 @@ function VerdictRow({ verdict, proof }: { verdict: LineVerdict; proof: ProofStat
       style={{ borderLeft: `3px solid ${rule}`, backgroundColor: surface }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <code className="mono min-w-0 text-[12px] [overflow-wrap:anywhere]" style={{ color: pathInk }}>
+        <code className="mono min-w-0 text-[13.5px] [overflow-wrap:anywhere]" style={{ color: pathInk }}>
           {verdict.file}:{verdict.line}
         </code>
         <span
-          className="shrink-0 text-[11px] uppercase tracking-[0.1em]"
+          className="shrink-0 text-[13px] uppercase tracking-[0.1em]"
           style={{
             color: isPatched ? 'var(--ink)' : 'var(--ink-3)',
             fontWeight: isPatched ? 600 : 500,
@@ -401,8 +397,8 @@ function VerdictRow({ verdict, proof }: { verdict: LineVerdict; proof: ProofStat
       {verdict.patch && (
         <div className="mt-6">
           <div className="micro">Patch</div>
-          <CodeLine text={`- ${verdict.patch.before.trim()}`} tone="var(--ink-3)" struck sunken />
-          <CodeLine text={`+ ${verdict.patch.after.trim()}`} tone="var(--ink)" sunken />
+          <CodeLine text={`- ${verdict.patch.before.trim()}`} tone="var(--ink-2)" struck diff="removed" />
+          <CodeLine text={`+ ${verdict.patch.after.trim()}`} tone="var(--ink)" diff="added" />
         </div>
       )}
 
@@ -417,24 +413,72 @@ function VerdictRow({ verdict, proof }: { verdict: LineVerdict; proof: ProofStat
   )
 }
 
+// The breaking change reads as a two-line git diff rather than an arrow. The shared
+// prefix stays plain and only the segment that actually moved carries a tint, which
+// is how a word-level diff is read on GitHub.
+function AccessorDiff({ oldAccessor, newAccessor }: { oldAccessor: string; newAccessor: string }) {
+  let cut = 0
+  while (cut < oldAccessor.length && cut < newAccessor.length && oldAccessor[cut] === newAccessor[cut]) cut++
+  // Back up to the last separator so the highlight starts on a whole segment.
+  const boundary = Math.max(oldAccessor.lastIndexOf('.', cut), newAccessor.lastIndexOf('.', cut))
+  if (boundary > 0) cut = boundary + 1
+
+  const prefix = oldAccessor.slice(0, cut)
+
+  return (
+    <div className="mono mt-2 overflow-x-auto text-[13.5px] leading-relaxed">
+      <div
+        className="whitespace-nowrap px-3 py-1"
+        style={{ backgroundColor: 'var(--diff-removed)', borderLeft: '3px solid var(--diff-removed-edge)' }}
+      >
+        <span className="text-[var(--ink-3)]">- </span>
+        <span className="text-[var(--ink-2)]">{prefix}</span>
+        <span className="text-[var(--ink)] line-through" style={{ backgroundColor: 'var(--diff-removed-word)' }}>
+          {oldAccessor.slice(cut)}
+        </span>
+      </div>
+      <div
+        className="whitespace-nowrap px-3 py-1"
+        style={{ backgroundColor: 'var(--diff-added)', borderLeft: '3px solid var(--diff-added-edge)' }}
+      >
+        <span className="text-[var(--ink-3)]">+ </span>
+        <span className="text-[var(--ink-2)]">{prefix}</span>
+        <span className="text-[var(--ink)]" style={{ backgroundColor: 'var(--diff-added-word)' }}>
+          {newAccessor.slice(cut)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function CodeLine({
   text,
   tone,
   struck,
   sunken,
+  diff,
 }: {
   text: string
   tone: string
   struck?: boolean
   sunken?: boolean
+  diff?: 'removed' | 'added'
 }) {
+  const background = diff
+    ? `var(--diff-${diff})`
+    : sunken
+      ? 'var(--ground)'
+      : 'transparent'
   return (
     <div
       className="mt-3 overflow-x-auto px-3 py-2"
-      style={{ backgroundColor: sunken ? 'var(--ground)' : 'transparent' }}
+      style={{
+        backgroundColor: background,
+        borderLeft: diff ? `3px solid var(--diff-${diff}-edge)` : undefined,
+      }}
     >
       <code
-        className="mono whitespace-pre text-[12.5px] leading-snug"
+        className="mono whitespace-pre text-[13.5px] leading-snug"
         style={{ color: tone, textDecoration: struck ? 'line-through' : 'none' }}
       >
         {text.trim()}
@@ -481,7 +525,7 @@ function ProofBlock({ proof }: { proof: ProofState }) {
         <div className="micro">Sandbox proof</div>
         <div className="mt-3 border border-[var(--line-strong)] px-4 py-3">
           <p className="text-[13px] font-semibold text-[var(--ink)]">Verification did not pass.</p>
-          <pre className="mono mt-3 max-h-24 overflow-auto whitespace-pre-wrap text-[11px] leading-snug text-[var(--ink-3)]">
+          <pre className="mono mt-3 max-h-24 overflow-auto whitespace-pre-wrap text-[12.5px] leading-snug text-[var(--ink-3)]">
             {before === after ? before : `${before}\n${after}`}
           </pre>
         </div>
@@ -493,9 +537,9 @@ function ProofBlock({ proof }: { proof: ProofState }) {
     <div className="mt-6">
       <div className="micro">Sandbox proof · Daytona · live Stripe API</div>
       <div className="mt-3 border-l border-[var(--line-strong)] pl-4">
-        <p className="mono text-[12.5px] text-[var(--ink-3)] line-through">{before}</p>
-        <p className="mono mt-1 text-[12.5px] text-[var(--ink)]">{after}</p>
-        <p className="prose-line mt-3 text-[12px] text-[var(--ink-3)]">
+        <p className="mono text-[14px] text-[var(--ink-2)] line-through">{before}</p>
+        <p className="mono mt-1 text-[14px] text-[var(--ink)]">{after}</p>
+        <p className="prose-line mt-3 text-[13px] text-[var(--ink-3)]">
           Shared accessor proof: one sandbox run of the migrated accessor, not a per-line execution.
         </p>
       </div>

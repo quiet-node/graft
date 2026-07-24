@@ -5,14 +5,25 @@
 :root {
   --ground: #000000;
   --surface: #0a0a0a;
-  --raised: #141414;
-  --line: #1f1f1f;
-  --line-strong: #383838;
+  --raised: #16161a;
+  --line: #2e2e2e;
+  --line-strong: #565656;
 
   --ink: #ffffff;
-  --ink-2: #a3a3a3;
-  --ink-3: #6e6e6e;
-  --ink-4: #4a4a4a;
+  --ink-2: #cccccc;
+  --ink-3: #a0a0a0;
+  --ink-4: #7d7d7d;
+
+  /* The only hue in the application. Removed and added diff lines carry a dark
+     desaturated tint because red and green on a diff is a reading convention,
+     not decoration. The leading minus and plus and the strikethrough remain the
+     primary signal, so the tint is reinforcement and never the sole carrier. */
+  --diff-removed: #2a1215;
+  --diff-removed-edge: #7d2c33;
+  --diff-removed-word: #5e1f28;
+  --diff-added: #0f2416;
+  --diff-added-edge: #2f7a48;
+  --diff-added-word: #1d4d30;
 
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -49,7 +60,7 @@ h3 {
 
 /* Uppercase micro-label: the type-only replacement for iconography. */
 .micro {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.1em;
