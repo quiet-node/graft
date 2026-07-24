@@ -1,0 +1,7 @@
+{
+  "enabledPlugins": {
+    "trace-claude-code@braintrust-claude-plugin": true,
+    "braintrust@braintrust-claude-plugin": true,
+    "coderabbit@claude-plugins-official": true
+  }
+}
