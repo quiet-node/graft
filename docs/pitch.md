@@ -18,7 +18,7 @@ Read the **spoken** lines only. Everything in brackets is a stage direction, not
 
 **Screen:** Stripe's Basil changelog page for the `current_period_start` / `current_period_end` deprecation, beside an editor showing a line that reads `subscription.current_period_end`.
 
-> Last March, Stripe moved one field.
+> Last year, Stripe moved one field.
 >
 > Current period end. It used to live on the subscription. Now it lives on the subscription item.
 >
