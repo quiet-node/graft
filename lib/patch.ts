@@ -1,6 +1,9 @@
 import type { BreakingChange } from './types'
-import { baseExpressions, type ScanHit } from './scan'
+import { baseExpressions, withFireworksSlot, type ScanHit } from './scan'
 import { fireworks, FIREWORKS_MODEL, recordUsage } from './fireworks'
+
+const PATCH_TIMEOUT_MS = 25_000
+const PATCH_MAX_RETRIES = 1
 
 export async function generatePatch(
   hit: ScanHit,
@@ -23,15 +26,26 @@ export async function generatePatch(
     `Targets to rewrite: ${targets.length ? targets.join(', ') : '(none)'}\n` +
     `Origin of those targets: ${hit.provenance ?? 'not traced'}`
 
-  const res = await fireworks.chat.completions.create({
-    model: FIREWORKS_MODEL,
-    temperature: 0,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-  })
+  let res
+  try {
+    res = await withFireworksSlot(() =>
+      fireworks.chat.completions.create(
+        {
+          model: FIREWORKS_MODEL,
+          temperature: 0,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        },
+        { timeout: PATCH_TIMEOUT_MS, maxRetries: PATCH_MAX_RETRIES }
+      )
+    )
+  } catch {
+    // A failed call leaves this line unpatched rather than ending the run.
+    return { before: hit.text, after: hit.text }
+  }
 
   recordUsage(res)
   const raw = res.choices[0]?.message?.content ?? '{}'

@@ -10,6 +10,35 @@ const MAX_PROVENANCE_LINES = 70
 const MAX_TRACED_IDENTIFIERS = 12
 const MAX_CALL_SITES = 6
 
+// Model calls are independent per candidate, so they run concurrently. The cap keeps the
+// burst below the Fireworks rate limit; the per-call timeout stops one hung request from
+// holding the whole run open.
+const FIREWORKS_CONCURRENCY = 12
+const CLASSIFIER_TIMEOUT_MS = 25_000
+const CLASSIFIER_MAX_RETRIES = 1
+
+// Marks a hit whose classification call never completed, so a degraded hit can never be
+// read as a real "not a Stripe object" verdict.
+export const CLASSIFIER_ERROR_PREFIX = 'classifier call failed:'
+
+let active = 0
+const waiting: (() => void)[] = []
+
+// Process-wide cap on in-flight Fireworks calls, shared by classification and patching, so
+// the total stays under the limit however many repos are being scanned at once. A finished
+// call hands its slot straight to the next waiter rather than releasing it into a race.
+export async function withFireworksSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (active < FIREWORKS_CONCURRENCY) active++
+  else await new Promise<void>((resolve) => waiting.push(resolve))
+  try {
+    return await fn()
+  } finally {
+    const next = waiting.shift()
+    if (next) next()
+    else active--
+  }
+}
+
 export type ScanHit = {
   file: string
   line: number
@@ -288,15 +317,32 @@ async function classify(
       ? `\n\nCall sites elsewhere in the repo:\n${callSites.join('\n')}`
       : '')
 
-  const res = await fireworks.chat.completions.create({
-    model: FIREWORKS_MODEL,
-    temperature: 0,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-  })
+  let res
+  try {
+    res = await withFireworksSlot(() =>
+      fireworks.chat.completions.create(
+        {
+          model: FIREWORKS_MODEL,
+          temperature: 0,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        },
+        { timeout: CLASSIFIER_TIMEOUT_MS, maxRetries: CLASSIFIER_MAX_RETRIES }
+      )
+    )
+  } catch (err) {
+    // One failed call degrades its own candidate and leaves the rest of the run intact.
+    // The error is named in the verdict so it can never read as a real false positive.
+    const message = err instanceof Error ? err.message : String(err)
+    return {
+      genuine: false,
+      reason: `${CLASSIFIER_ERROR_PREFIX} ${message}`,
+      provenance: `${CLASSIFIER_ERROR_PREFIX} ${message}`,
+    }
+  }
 
   recordUsage(res)
   const raw = res.choices[0]?.message?.content ?? '{}'
@@ -320,17 +366,18 @@ export async function scanRepo(repo: TargetRepo, change: BreakingChange): Promis
   const files: string[] = []
   walk(repo.localPath, files)
   const candidates = findCandidates(files, repo, change.field)
-  const hits: ScanHit[] = []
-  for (const candidate of candidates) {
-    const { genuine, reason, provenance } = await classify(candidate, change, repo, files)
-    hits.push({
-      file: candidate.relPath,
-      line: candidate.line,
-      text: candidate.text,
-      genuine,
-      reason,
-      provenance,
+  const hits = await Promise.all(
+    candidates.map(async (candidate) => {
+      const { genuine, reason, provenance } = await classify(candidate, change, repo, files)
+      return {
+        file: candidate.relPath,
+        line: candidate.line,
+        text: candidate.text,
+        genuine,
+        reason,
+        provenance,
+      }
     })
-  }
+  )
   return { repo, hits }
 }
